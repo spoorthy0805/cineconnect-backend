@@ -1,4 +1,5 @@
-const express = require('express')
+import express from 'express'
+
 const router = express.Router()
 
 // Public OMDb key for small projects
@@ -56,11 +57,12 @@ router.get('/search', async (req, res) => {
 
     if (!q.trim()) return res.json([])
 
-    const r = await fetch(`${OMDB_BASE}&s=${encodeURIComponent(q)}&page=${page}`)
+    const r = await fetch(
+      `${OMDB_BASE}&s=${encodeURIComponent(q)}&page=${page}`
+    )
     const data = await r.json()
     if (!data || data.Response !== 'True') return res.json([])
 
-    // OMDb search doesn't include overview, only basic info
     const list = (data.Search || []).map(m => ({
       tmdbId: m.imdbID || '',
       title: m.Title || '',
@@ -77,4 +79,4 @@ router.get('/search', async (req, res) => {
   }
 })
 
-module.exports = router
+export default router
