@@ -89,5 +89,9 @@ router.get("/search", async (req, res) => {
 
   return res.json(Array.from(uniq.values()))
 })
+router.get("/test", (req, res) => {
+  res.json({ message: "router works" })
+})
+
 
 export default router
