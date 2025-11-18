@@ -45,9 +45,11 @@ router.get("/trending", async (req, res) => {
     )
 
     res.json(results.filter(Boolean))
-  } catch (err) {
-    console.log(err)
-    res.json([])
+  }} catch (err) {
+  console.error("TRENDING ERROR:", err)
+  return res.status(500).json({ error: err.toString() })
+}
+
   }
 })
 
@@ -93,5 +95,14 @@ router.get("/test", (req, res) => {
   res.json({ message: "router works" })
 })
 
+router.get("/omdbtest", async (req, res) => {
+  try {
+    const r = await fetch("https://www.omdbapi.com/?apikey=564727fa&s=batman")
+    const data = await r.json()
+    res.json(data)
+  } catch (err) {
+    res.json({ error: err.toString() })
+  }
+})
 
 export default router
