@@ -2,11 +2,10 @@ import express from "express"
 
 const router = express.Router()
 
-// Public OMDb API key
+// Using public OMDb API key
 const OMDB_KEY = "564727fa"
 const OMDB_BASE = `https://www.omdbapi.com/?apikey=${OMDB_KEY}`
 
-// Convert OMDb movie to consistent format
 function mapMovie(m) {
   return {
     tmdbId: m.imdbID || "",
@@ -18,26 +17,28 @@ function mapMovie(m) {
   }
 }
 
-// ---- TRENDING (always returns multiple movies) ----
+// ---- TRENDING MOVIES (always returns many movies) ----
 router.get("/trending", async (req, res) => {
   try {
     const ids = [
       "tt15398776", // Oppenheimer
       "tt1517268",  // Barbie
       "tt1160419",  // Dune
-      "tt1375666",  // Inception
-      "tt7286456",  // Joker
-      "tt3896198",  // Guardians of the Galaxy 2
-      "tt0816692",  // Interstellar
-      "tt4154796",  // Avengers: Endgame
-      "tt4633694",  // Into the Spider-Verse
       "tt1877830",  // The Batman
+      "tt7286456",  // Joker
+      "tt4633694",  // Spider-Verse
+      "tt0458339",  // Captain America
+      "tt4630562",  // Fate of the Furious
+      "tt4154796",  // Avengers: Endgame
+      "tt0848228",  // Avengers
+      "tt1375666",  // Inception
+      "tt0816692",  // Interstellar
     ]
 
     const results = await Promise.all(
       ids.map(async (id) => {
-        const r = await fetch(`${OMDB_BASE}&i=${id}&plot=short`)
-        const data = await r.json()
+        const res = await fetch(`${OMDB_BASE}&i=${id}&plot=short`)
+        const data = await res.json()
         if (data.Response === "True") return mapMovie(data)
         return null
       })
@@ -45,51 +46,48 @@ router.get("/trending", async (req, res) => {
 
     res.json(results.filter(Boolean))
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: "Trending error" })
+    console.log(err)
+    res.json([])
   }
 })
 
-// ---- SEARCH (NEVER RETURNS EMPTY NOW) ----
+// ---- SEARCH MOVIES (never empty) ----
 router.get("/search", async (req, res) => {
-  try {
-    const q = req.query.q || ""
-    const page = req.query.page || 1
+  const q = (req.query.q || "").trim()
 
-    let final = []
-
-    // 1. Try normal OMDb search
-    if (q) {
-      const r = await fetch(`${OMDB_BASE}&s=${encodeURIComponent(q)}&page=${page}`)
-      const data = await r.json()
-      if (data.Response === "True" && Array.isArray(data.Search)) {
-        final = data.Search.map(mapMovie)
-      }
-    }
-
-    // 2. If still empty → use fallback categories
-    if (final.length === 0) {
-      const fallbackQueries = ["action", "popular", "love", "thriller"]
-
-      const fallbackResults = await Promise.all(
-        fallbackQueries.map(async (term) => {
-          const r = await fetch(`${OMDB_BASE}&s=${term}`)
-          const data = await r.json()
-          if (data.Response === "True" && Array.isArray(data.Search)) {
-            return data.Search.map(mapMovie)
-          }
-          return []
-        })
-      )
-
-      final = fallbackResults.flat()
-    }
-
-    res.json(final.slice(0, 30)) // return first 30
-  } catch (err) {
-    console.error(err)
-    res.json([]) // safe fallback
+  async function omdbSearch(term) {
+    const r = await fetch(`${OMDB_BASE}&s=${encodeURIComponent(term)}`)
+    const data = await r.json()
+    if (!Array.isArray(data.Search)) return []
+    return data.Search.map(mapMovie)
   }
+
+  let results = []
+
+  // 1. Try actual search
+  if (q) results = await omdbSearch(q)
+
+  // 2. If empty, add fallback searches
+  if (!results.length) {
+    const fallbackTerms = ["action", "thriller", "romance", "drama", "comedy"]
+    let fallbackResults = []
+    for (const term of fallbackTerms) {
+      const r = await omdbSearch(term)
+      fallbackResults = fallbackResults.concat(r)
+    }
+    results = fallbackResults
+  }
+
+  // 3. Remove duplicates
+  const uniq = new Map()
+  for (const m of results) {
+    if (m.tmdbId && !uniq.has(m.tmdbId)) {
+      uniq.set(m.tmdbId, m)
+    }
+    if (uniq.size >= 25) break
+  }
+
+  return res.json(Array.from(uniq.values()))
 })
 
 export default router
